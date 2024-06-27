@@ -1,0 +1,5 @@
+<!DOCTYPE html><html xmlns:th="http://www.thymeleaf.org"><head>
+    <title>Basic Layout</title></head><body>
+<div th:fragment="setContent(content)">
+    <div th:replace="~{::content}"></div>
+</div></body></html>
