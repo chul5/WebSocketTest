@@ -26,6 +26,12 @@
     $(document).ready(function(){
         const username = 'anonymous';
 
+        $.get("/messages", function(messages) {
+            messages.forEach(function(message) {
+                displayMessage(message.name, message.content);
+            });
+        });
+
         $("#button-send").on("click", function() {
             send();
         });
@@ -44,8 +50,8 @@
 
         function send(){
             let msg = document.getElementById("msg").value;
-            console.log(username + ": " + msg);
-            websocket.send(username + ": " + msg);
+            console.log(username + ":" + msg);
+            websocket.send(username + ":" + msg);
             document.getElementById("msg").value = '';
         }
 
@@ -65,21 +71,20 @@
             var sessionId = arr[0];
             var message = arr[1];
 
-            var cur_session = username;
+            displayMessage(sessionId, message);
+        }
 
+        function displayMessage(sessionId, message) {
+            var cur_session = username;
+            var str = "<div class='col-6'>";
             if(sessionId === cur_session){
-                var str = "<div class='col-6'>";
                 str += "<div class='alert alert-secondary'>";
-                str += "<b>" + sessionId + " : " + message + "</b>";
-                str += "</div></div>";
-                $("#msgArea").append(str);
             } else {
-                var str = "<div class='col-6'>";
                 str += "<div class='alert alert-warning'>";
-                str += "<b>" + sessionId + " : " + message + "</b>";
-                str += "</div></div>";
-                $("#msgArea").append(str);
             }
+            str += "<b>" + sessionId + " : " + message + "</b>";
+            str += "</div></div>";
+            $("#msgArea").append(str);
         }
     });
 </script></body></html>
