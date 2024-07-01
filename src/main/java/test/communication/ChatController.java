@@ -22,7 +22,7 @@ public class ChatController {
 		return "test";
 	}
 
-	@GetMapping("/chat")
+	@GetMapping("/chatTest")
 	public String chatGET(Model model) {
 
 		log.info("@ChatController, chat GET()");

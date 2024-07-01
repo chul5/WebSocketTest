@@ -1,2 +1,22 @@
-hello wrold dafssfdsad
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <title>Home</title>
+</head>
+<body>
+<h1>Welcome to the Home Page!</h1>
 
+<div th:if="${#authentication.principal != null}">
+    <p>Logged in as: <span th:text="${#authentication.name}"></span></p>
+    <p>Roles: <span th:text="${#authentication.authorities}"></span></p>
+</div>
+<div th:unless="${#authentication.principal != null}">
+    <p>You are not logged in.</p>
+</div>
+
+<!-- 링크 예시 -->
+<a href="/" th:href="@{/}">Home</a>
+<a href="/user" th:href="@{/user}">User Page</a>
+<a href="/admin" th:href="@{/admin}">Admin Page</a>
+</body>
+</html>
