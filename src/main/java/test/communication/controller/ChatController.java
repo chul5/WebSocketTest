@@ -17,11 +17,19 @@ import java.util.List;
 public class ChatController {
 	private final ChatService chatService;
 
-	@GetMapping("/test")
+	/*
+	* Login을 할 수 있는 URL
+	* */
+	@GetMapping("/login")
 	public String test() {
 		return "test";
 	}
 
+	/**
+	 * V1 에서 사용했던 URL지금은 사용하지 않는다.
+	 * @param model
+	 * @return
+	 */
 	@GetMapping("/chatTest")
 	public String chatGET(Model model) {
 
