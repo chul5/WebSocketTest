@@ -1,4 +1,4 @@
-package test.communication;
+package test.communication.controller;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.log4j.Log4j2;

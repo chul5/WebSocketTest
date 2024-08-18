@@ -1,4 +1,4 @@
-package test.communication;
+package test.communication.controller;
 
 import lombok.RequiredArgsConstructor;
 import org.springframework.messaging.handler.annotation.MessageMapping;
