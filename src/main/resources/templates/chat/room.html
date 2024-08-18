@@ -19,12 +19,24 @@
                     </div>
                 </div>
             </div>
-            <div class="col-6"></div>
+            <div class="col-6">
+                <!-- 다중 파일 업로드 버튼 -->
+                <div class="input-group mb-3">
+                    <input type="file" class="form-control" id="fileInput" multiple>
+                    <div class="input-group-append">
+                        <button class="btn btn-outline-secondary" type="button" id="button-upload">파일 업로드</button>
+                    </div>
+                </div>
+            </div>
         </div>
 
         <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
         <script src="https://cdn.jsdelivr.net/npm/sockjs-client@1/dist/sockjs.min.js"></script>
         <script src="https://cdnjs.cloudflare.com/ajax/libs/stomp.js/2.3.3/stomp.min.js"></script>
+
+        <!-- CSRF 토큰을 메타 태그로 추가 -->
+        <meta name="_csrf" th:content="${_csrf.token}"/>
+        <meta name="_csrf_header" th:content="${_csrf.headerName}"/>
 
     </th:block>
 </th:block>
@@ -41,14 +53,11 @@
         console.log(roomName + ", " + roomId + ", " + username);
 
         var sockJs = new SockJS("/stomp/chat");
-        //1. SockJS를 내부에 들고있는 stomp를 내어줌
         var stomp = Stomp.over(sockJs);
 
-        //2. connection이 맺어지면 실행
         stomp.connect({}, function (){
-            console.log("STOMP Connection")
+            console.log("STOMP Connection");
 
-            //4. subscribe(path, callback)으로 메세지를 받을 수 있음
             stomp.subscribe("/sub/chat/room/" + roomId, function (chat) {
                 var content = JSON.parse(chat.body);
 
@@ -70,11 +79,8 @@
                     str += "</div></div>";
                     $("#msgArea").append(str);
                 }
-
-                // $("#msgArea").append(str);
             });
 
-            //3. send(path, header, message)로 메세지를 보낼 수 있음
             stomp.send('/pub/chat/enter', {}, JSON.stringify({roomId: roomId, writer: username}))
         });
 
@@ -84,6 +90,48 @@
             console.log(username + ":" + msg.value);
             stomp.send('/pub/chat/message', {}, JSON.stringify({roomId: roomId, message: msg.value, writer: username}));
             msg.value = '';
+        });
+
+        $("#button-upload").on("click", function(e){
+            var fileInput = document.getElementById("fileInput");
+            var files = fileInput.files;
+
+            if(files.length > 0){
+                var formData = new FormData();
+
+                for (var i = 0; i < files.length; i++) {
+                    formData.append("files", files[i]);
+                }
+
+                // CSRF 토큰 가져오기
+                var csrfToken = $("meta[name='_csrf']").attr("content");
+                var csrfHeader = $("meta[name='_csrf_header']").attr("content");
+
+                $.ajax({
+                    url: '/file/upload', // 서버 측 파일 업로드 처리 경로
+                    type: 'POST',
+                    data: formData,
+                    processData: false,
+                    contentType: false,
+                    beforeSend: function(xhr) {
+                        xhr.setRequestHeader(csrfHeader, csrfToken);
+                    },
+                    success: function(response) {
+                        console.log("파일 업로드 성공:", response);
+                        // 업로드 성공 시 처리 로직 추가
+                        for (var i = 0; i < response.length; i++) {
+                            $("#msgArea").append("<div class='alert alert-info'>Uploaded: " + response[i] + "</div>");
+                        }
+                    },
+                    error: function(error) {
+                        console.log("파일 업로드 실패", error);
+                        // 업로드 실패 시 처리 로직 추가
+                        $("#msgArea").append("<div class='alert alert-danger'>파일 업로드 실패</div>");
+                    }
+                });
+            } else {
+                alert("파일을 선택하세요.");
+            }
         });
     });
 </script>
