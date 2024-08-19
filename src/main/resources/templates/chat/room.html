@@ -28,13 +28,6 @@
                         <button class="btn btn-outline-third" type="button" id="single-upload">싱글스레드 파일업로드</button>
                     </div>
                 </div>
-                <!-- 파일 다운로드 버튼 -->
-                <div class="input-group mb-3">
-                    <button class="btn btn-outline-primary" type="button" id="download-multi">multi 다운로드 (ZIP)</button>
-                </div>
-                <div class="input-group mb-3">
-                    <button class="btn btn-outline-primary" type="button" id="download-single">single 다운로드 (ZIP)</button>
-                </div>
             </div>
         </div>
 
@@ -184,12 +177,5 @@
             }
         });
 
-        $("#download-multi").on("click", function(e){
-            window.location.href = "/downloadZip/multi";
-        });
-
-        $("#download-single").on("click", function(e){
-            window.location.href = "/downloadZip/single";
-        });
     });
 </script>

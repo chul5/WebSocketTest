@@ -61,7 +61,7 @@ public class StompChatController {
 			throw new RuntimeException("Could not create storage directory", e);
 		}
 
-		for (MultipartFile file : files){
+		for (MultipartFile file : files) {
 			String originalFileName = file.getOriginalFilename();
 			String storedFileName = UUID.randomUUID().toString() + "_" + originalFileName;
 			try {
@@ -81,10 +81,7 @@ public class StompChatController {
 		if (files.length == 0) {
 			throw new RuntimeException("Failed to store empty file.");
 		}
-
 		log.info("# 멀티스레드 업로드 POST");
-
-
 		List<String> uploadedFilesInfo = new ArrayList<>();
 		Path fileStorageLocation = Paths.get("src/main/resources/message/").toAbsolutePath();
 
@@ -97,13 +94,12 @@ public class StompChatController {
 
 
 		try {
-			// 디렉토리 생성
 			Files.createDirectories(fileStorageLocation);
 		} catch (IOException e) {
 			throw new RuntimeException("Could not create storage directory", e);
 		}
 
-		for (MultipartFile file : files){
+		for (MultipartFile file : files) {
 			Callable<String> fileSaveJob = () -> {
 				String originalFileName = file.getOriginalFilename();
 				String storedFileName = UUID.randomUUID().toString() + "_" + originalFileName;
@@ -125,84 +121,9 @@ public class StompChatController {
 				throw new RuntimeException("Failed to retrieve file upload result", e);
 			}
 		}
-		executor.shutdown(); // thread 종료!!
-
-		// 예외 발생 시 명확한 로그와 스레드 안전 종료
-		try {
-			if (!executor.awaitTermination(60, TimeUnit.SECONDS)) {
-				executor.shutdownNow();
-				if (!executor.awaitTermination(60, TimeUnit.SECONDS))
-					log.error("Executor did not terminate");
-			}
-		} catch (InterruptedException e) {
-			executor.shutdownNow();
-			Thread.currentThread().interrupt();
-		}
-
-		return uploadedFilesInfo; // 업로드된 파일 정보 리스트 반환
+		executor.shutdown();
+		return uploadedFilesInfo;
 	}
 
-	@GetMapping("/downloadZip/multi")
-	public void downloadMultiThread(HttpServletResponse response) throws IOException {
-		String[] files = {"file1.txt", "file2.txt", "file3.txt", "file4.txt"}; // 다운로드할 파일 이름들
-		Path fileStorageLocation = Paths.get("src/main/resources/message/").toAbsolutePath();
-
-		response.setContentType("application/zip");
-		response.setHeader("Content-Disposition", "attachment; filename=files.zip");
-
-
-		int numberOfThreads = files.length;
-		if (files.length > Runtime.getRuntime().availableProcessors())
-			numberOfThreads = Runtime.getRuntime().availableProcessors();
-		ExecutorService executor = Executors.newFixedThreadPool(numberOfThreads);
-		List<Future<byte[]>> futures = new ArrayList<>();
-
-		// 각 파일을 비동기로 읽어들이는 작업
-		for (String fileName : files) {
-			Callable<byte[]> fileReadTask = () -> {
-				Path filePath = fileStorageLocation.resolve(fileName);
-				try (InputStream fis = Files.newInputStream(filePath)) {
-					return StreamUtils.copyToByteArray(fis);
-				}
-			};
-			futures.add(executor.submit(fileReadTask));
-		}
-
-		// ZIP 파일에 쓰기
-		try (ZipOutputStream zos = new ZipOutputStream(response.getOutputStream())) {
-			for (int i = 0; i < files.length; i++) {
-				byte[] fileData = futures.get(i).get(); // 비동기로 읽어온 파일 데이터
-				ZipEntry zipEntry = new ZipEntry(files[i]);
-				zos.putNextEntry(zipEntry);
-				zos.write(fileData);
-				zos.closeEntry();
-			}
-		} catch (Exception e) {
-			throw new RuntimeException("Failed to create ZIP file", e);
-		} finally {
-			executor.shutdown();
-		}
-	}
-
-	@GetMapping("/downloadZip/single")
-	public void downloadSingleThread(HttpServletResponse response) throws IOException {
-		String[] fileNames = {"file1.txt", "file2.txt", "file3.txt", "file4.txt"}; // 다운로드할 파일 이름들
-		Path fileStorageLocation = Paths.get("src/main/resources/message/").toAbsolutePath();
-
-		response.setContentType("application/zip");
-		response.setHeader("Content-Disposition", "attachment; filename=files.zip");
-
-		try (ZipOutputStream zos = new ZipOutputStream(response.getOutputStream())) {
-			for (String fileName : fileNames) {
-				Path filePath = fileStorageLocation.resolve(fileName);
-				try (InputStream fis = Files.newInputStream(filePath)) {
-					ZipEntry zipEntry = new ZipEntry(fileName);
-					zos.putNextEntry(zipEntry);
-					StreamUtils.copy(fis, zos);
-					zos.closeEntry();
-				}
-			}
-		}
-	}
 
 }
