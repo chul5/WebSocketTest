@@ -42,7 +42,8 @@ public class SecurityConfig {
 						.requestMatchers("/admin/**").hasRole("ADMIN")
 						.requestMatchers("/user/**").hasRole("USER")
 						.requestMatchers("/").permitAll()
-						.and()
+								.anyRequest().authenticated()
+								.and()
 				).formLogin(Customizer.withDefaults());
 		return http.build();
 	}

@@ -24,8 +24,16 @@
                 <div class="input-group mb-3">
                     <input type="file" class="form-control" id="fileInput" multiple>
                     <div class="input-group-append">
-                        <button class="btn btn-outline-secondary" type="button" id="button-upload">파일 업로드</button>
+                        <button class="btn btn-outline-secondary" type="button" id="multi-upload">멀티스레드 파일업로드</button>
+                        <button class="btn btn-outline-third" type="button" id="single-upload">싱글스레드 파일업로드</button>
                     </div>
+                </div>
+                <!-- 파일 다운로드 버튼 -->
+                <div class="input-group mb-3">
+                    <button class="btn btn-outline-primary" type="button" id="download-multi">multi 다운로드 (ZIP)</button>
+                </div>
+                <div class="input-group mb-3">
+                    <button class="btn btn-outline-primary" type="button" id="download-single">single 다운로드 (ZIP)</button>
                 </div>
             </div>
         </div>
@@ -92,7 +100,7 @@
             msg.value = '';
         });
 
-        $("#button-upload").on("click", function(e){
+        $("#multi-upload").on("click", function(e){
             var fileInput = document.getElementById("fileInput");
             var files = fileInput.files;
 
@@ -132,6 +140,56 @@
             } else {
                 alert("파일을 선택하세요.");
             }
+        });
+
+        $("#single-upload").on("click", function(e){
+            var fileInput = document.getElementById("fileInput");
+            var files = fileInput.files;
+
+            if(files.length > 0){
+                var formData = new FormData();
+
+                for (var i = 0; i < files.length; i++) {
+                    formData.append("files", files[i]);
+                }
+
+                // CSRF 토큰 가져오기
+                var csrfToken = $("meta[name='_csrf']").attr("content");
+                var csrfHeader = $("meta[name='_csrf_header']").attr("content");
+
+                $.ajax({
+                    url: '/file/single', // 서버 측 파일 업로드 처리 경로
+                    type: 'POST',
+                    data: formData,
+                    processData: false,
+                    contentType: false,
+                    beforeSend: function(xhr) {
+                        xhr.setRequestHeader(csrfHeader, csrfToken);
+                    },
+                    success: function(response) {
+                        console.log("파일 업로드 성공:", response);
+                        // 업로드 성공 시 처리 로직 추가
+                        for (var i = 0; i < response.length; i++) {
+                            $("#msgArea").append("<div class='alert alert-info'>Uploaded: " + response[i] + "</div>");
+                        }
+                    },
+                    error: function(error) {
+                        console.log("파일 업로드 실패", error);
+                        // 업로드 실패 시 처리 로직 추가
+                        $("#msgArea").append("<div class='alert alert-danger'>파일 업로드 실패</div>");
+                    }
+                });
+            } else {
+                alert("파일을 선택하세요.");
+            }
+        });
+
+        $("#download-multi").on("click", function(e){
+            window.location.href = "/downloadZip/multi";
+        });
+
+        $("#download-single").on("click", function(e){
+            window.location.href = "/downloadZip/single";
         });
     });
 </script>

@@ -1,10 +1,13 @@
 package test.communication.controller;
 
+import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.messaging.handler.annotation.MessageMapping;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.stereotype.Controller;
+import org.springframework.util.StreamUtils;
+import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseBody;
@@ -12,6 +15,7 @@ import org.springframework.web.multipart.MultipartFile;
 import test.communication.domain.ChatMessageDTO;
 
 import java.io.IOException;
+import java.io.InputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -20,6 +24,8 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.*;
+import java.util.zip.ZipEntry;
+import java.util.zip.ZipOutputStream;
 
 @Controller
 @RequiredArgsConstructor
@@ -38,23 +44,57 @@ public class StompChatController {
 		template.convertAndSend("/sub/chat/room/" + message.getRoomId(), message);
 	}
 
+	@PostMapping("/file/single")
+	@ResponseBody
+	public List<String> singleThreadFile(@RequestParam("files") MultipartFile[] files) { // hadnleFileUpload메소드는 클라이언트가 업로드한 파일을 서버에 저장하는 역할
+		if (files.length == 0) {
+			throw new RuntimeException("Failed to store empty file."); // 비어 있으면 예외처리
+		}
+
+		log.info("# 싱글스레드 업로드 POST");
+		List<String> response = new ArrayList<>();
+		Path fileStorageLocation = Paths.get("src/main/resources/message/").toAbsolutePath();
+
+		try {
+			Files.createDirectories(fileStorageLocation);
+		} catch (IOException e) {
+			throw new RuntimeException("Could not create storage directory", e);
+		}
+
+		for (MultipartFile file : files){
+			String originalFileName = file.getOriginalFilename();
+			String storedFileName = UUID.randomUUID().toString() + "_" + originalFileName;
+			try {
+				Path targetName = fileStorageLocation.resolve(storedFileName);
+				Files.copy(file.getInputStream(), targetName, StandardCopyOption.REPLACE_EXISTING);
+				response.add(originalFileName + "::" + storedFileName);
+			} catch (IOException e) {
+				throw new RuntimeException("Failed to store File:" + originalFileName, e);
+			}
+		}
+		return response;
+	}
+
 	@PostMapping("/file/upload")
 	@ResponseBody
-	public List<String> handleFileUpload(@RequestParam("files") MultipartFile[] files) {
+	public List<String> multiThreadFileUpload(@RequestParam("files") MultipartFile[] files) {
 		if (files.length == 0) {
 			throw new RuntimeException("Failed to store empty file.");
 		}
 
-		log.info("# 채팅방 업로드 POST");
+		log.info("# 멀티스레드 업로드 POST");
 
 
 		List<String> uploadedFilesInfo = new ArrayList<>();
 		Path fileStorageLocation = Paths.get("src/main/resources/message/").toAbsolutePath();
 
-		ExecutorService executor = Executors.newFixedThreadPool(files.length);
+		int numberOfThreads = files.length;
+		if (files.length > Runtime.getRuntime().availableProcessors())
+			numberOfThreads = Runtime.getRuntime().availableProcessors();
+
+		ExecutorService executor = Executors.newFixedThreadPool(numberOfThreads);
 		List<Future<String>> futures = new ArrayList<>();
 
-		System.out.println(Runtime.getRuntime().availableProcessors());
 
 		try {
 			// 디렉토리 생성
@@ -74,10 +114,7 @@ public class StompChatController {
 				} catch (IOException e) {
 					throw new RuntimeException("Failed to store File:" + originalFileName, e);
 				}
-
-
 			};
-
 			futures.add(executor.submit(fileSaveJob));
 		}
 
@@ -104,4 +141,68 @@ public class StompChatController {
 
 		return uploadedFilesInfo; // 업로드된 파일 정보 리스트 반환
 	}
+
+	@GetMapping("/downloadZip/multi")
+	public void downloadMultiThread(HttpServletResponse response) throws IOException {
+		String[] files = {"file1.txt", "file2.txt", "file3.txt", "file4.txt"}; // 다운로드할 파일 이름들
+		Path fileStorageLocation = Paths.get("src/main/resources/message/").toAbsolutePath();
+
+		response.setContentType("application/zip");
+		response.setHeader("Content-Disposition", "attachment; filename=files.zip");
+
+
+		int numberOfThreads = files.length;
+		if (files.length > Runtime.getRuntime().availableProcessors())
+			numberOfThreads = Runtime.getRuntime().availableProcessors();
+		ExecutorService executor = Executors.newFixedThreadPool(numberOfThreads);
+		List<Future<byte[]>> futures = new ArrayList<>();
+
+		// 각 파일을 비동기로 읽어들이는 작업
+		for (String fileName : files) {
+			Callable<byte[]> fileReadTask = () -> {
+				Path filePath = fileStorageLocation.resolve(fileName);
+				try (InputStream fis = Files.newInputStream(filePath)) {
+					return StreamUtils.copyToByteArray(fis);
+				}
+			};
+			futures.add(executor.submit(fileReadTask));
+		}
+
+		// ZIP 파일에 쓰기
+		try (ZipOutputStream zos = new ZipOutputStream(response.getOutputStream())) {
+			for (int i = 0; i < files.length; i++) {
+				byte[] fileData = futures.get(i).get(); // 비동기로 읽어온 파일 데이터
+				ZipEntry zipEntry = new ZipEntry(files[i]);
+				zos.putNextEntry(zipEntry);
+				zos.write(fileData);
+				zos.closeEntry();
+			}
+		} catch (Exception e) {
+			throw new RuntimeException("Failed to create ZIP file", e);
+		} finally {
+			executor.shutdown();
+		}
+	}
+
+	@GetMapping("/downloadZip/single")
+	public void downloadSingleThread(HttpServletResponse response) throws IOException {
+		String[] fileNames = {"file1.txt", "file2.txt", "file3.txt", "file4.txt"}; // 다운로드할 파일 이름들
+		Path fileStorageLocation = Paths.get("src/main/resources/message/").toAbsolutePath();
+
+		response.setContentType("application/zip");
+		response.setHeader("Content-Disposition", "attachment; filename=files.zip");
+
+		try (ZipOutputStream zos = new ZipOutputStream(response.getOutputStream())) {
+			for (String fileName : fileNames) {
+				Path filePath = fileStorageLocation.resolve(fileName);
+				try (InputStream fis = Files.newInputStream(filePath)) {
+					ZipEntry zipEntry = new ZipEntry(fileName);
+					zos.putNextEntry(zipEntry);
+					StreamUtils.copy(fis, zos);
+					zos.closeEntry();
+				}
+			}
+		}
+	}
+
 }
